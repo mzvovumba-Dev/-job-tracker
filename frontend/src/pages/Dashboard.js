@@ -9,6 +9,7 @@ function Dashboard() {
   const [status, setStatus] = useState('Applied');
   const [notes, setNotes] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -31,13 +32,21 @@ function Dashboard() {
     }
   };
 
-  const handleAdd = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/applications', 
-        { company, position, status, notes },
-        { headers: { authorization: token } }
-      );
+      if (editId) {
+        await axios.put(`http://localhost:5000/applications/${editId}`,
+          { company, position, status, notes },
+          { headers: { authorization: token } }
+        );
+        setEditId(null);
+      } else {
+        await axios.post('http://localhost:5000/applications',
+          { company, position, status, notes },
+          { headers: { authorization: token } }
+        );
+      }
       setCompany('');
       setPosition('');
       setStatus('Applied');
@@ -47,6 +56,15 @@ function Dashboard() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleEdit = (app) => {
+    setEditId(app.id);
+    setCompany(app.company);
+    setPosition(app.position);
+    setStatus(app.status);
+    setNotes(app.notes);
+    setShowForm(true);
   };
 
   const handleDelete = async (id) => {
@@ -65,6 +83,14 @@ function Dashboard() {
     navigate('/');
   };
 
+  const stats = {
+    total: applications.length,
+    applied: applications.filter(a => a.status === 'Applied').length,
+    interview: applications.filter(a => a.status === 'Interview').length,
+    offer: applications.filter(a => a.status === 'Offer').length,
+    rejected: applications.filter(a => a.status === 'Rejected').length,
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-blue-600 text-white p-4 flex justify-between items-center">
@@ -75,10 +101,31 @@ function Dashboard() {
       </nav>
 
       <div className="max-w-4xl mx-auto p-6">
+
+        {/* Stats Section */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow text-center">
+            <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+            <p className="text-gray-500 text-sm">Total</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow text-center">
+            <p className="text-3xl font-bold text-yellow-500">{stats.interview}</p>
+            <p className="text-gray-500 text-sm">Interviews</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow text-center">
+            <p className="text-3xl font-bold text-green-500">{stats.offer}</p>
+            <p className="text-gray-500 text-sm">Offers</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow text-center">
+            <p className="text-3xl font-bold text-red-500">{stats.rejected}</p>
+            <p className="text-gray-500 text-sm">Rejected</p>
+          </div>
+        </div>
+
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">My Applications ({applications.length})</h2>
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => { setShowForm(!showForm); setEditId(null); setCompany(''); setPosition(''); setStatus('Applied'); setNotes(''); }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
           >
             + Add Application
@@ -87,8 +134,8 @@ function Dashboard() {
 
         {showForm && (
           <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            <h3 className="text-lg font-semibold mb-4">Add New Application</h3>
-            <form onSubmit={handleAdd}>
+            <h3 className="text-lg font-semibold mb-4">{editId ? 'Edit Application' : 'Add New Application'}</h3>
+            <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-gray-700 mb-2">Company</label>
@@ -138,7 +185,7 @@ function Dashboard() {
                 type="submit"
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700"
               >
-                Add Application
+                {editId ? 'Update Application' : 'Add Application'}
               </button>
             </form>
           </div>
@@ -166,6 +213,12 @@ function Dashboard() {
                   }`}>
                     {app.status}
                   </span>
+                  <button
+                    onClick={() => handleEdit(app)}
+                    className="text-blue-500 hover:text-blue-700 font-semibold"
+                  >
+                    Edit
+                  </button>
                   <button
                     onClick={() => handleDelete(app.id)}
                     className="text-red-500 hover:text-red-700 font-semibold"
